@@ -2,119 +2,177 @@ using UnityEngine;
 
 public class PlayerInteraction : MonoBehaviour
 {
+    [System.Serializable]
+    public class InteractionPair
+    {
+        public GameObject targetObject;
+        public GameObject uiImage;
+    }
     public float interactionDistance = 10f;
     public KeyCode interactionKey = KeyCode.E;
     public KeyCode disableKey = KeyCode.Escape;
 
-    // Ссылки на UI
+    public InteractionPair[] interactables;
+
+    public GameObject Fonarik;          
+    public Transform playerHands;
+    public GameObject DPSKey;
+    public Transform KeyPlayerHands;
+
     public GameObject keyIcon;
     public GameObject rawImageUI;
 
-    // Ссылки на объекты сцены
-    public GameObject Fonarik; // Префаб или объект на сцене
-    public GameObject Player;  // Объект игрока
-
     private Camera cam;
+    private GameObject currentUI;
+    private bool hasFlashlight = false; 
+    private bool hasKey = false;
 
     void Start()
     {
+        
         cam = GetComponent<Camera>();
-        if (keyIcon != null) keyIcon.SetActive(false);
-        if (rawImageUI != null) rawImageUI.SetActive(false);
+        if (cam == null) cam = Camera.main;
 
-        // На всякий случай убедимся, что курсор скрыт в начале
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        if (keyIcon != null) keyIcon.SetActive(false);
+        foreach (var pair in interactables)
+        {
+            if (pair.uiImage != null) pair.uiImage.SetActive(false);
+        }
     }
 
     void Update()
     {
-        // --- ЛОГИКА ОТКРЫТИЯ КАРТИНОК (UI) ---
-        if (rawImageUI != null && rawImageUI.activeSelf)
+        // --- Закрыть UI по Escape ---
+        if (currentUI != null && currentUI.activeSelf)
         {
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
 
             if (Input.GetKeyDown(disableKey))
             {
-                rawImageUI.SetActive(false);
+                currentUI.SetActive(false);
+                currentUI = null;
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
             }
-            return; // Прерываем выполнение, пока открыт UI
+            return;
         }
 
-        // --- ОСНОВНАЯ ЛОГИКА ВЗАИМОДЕЙСТВИЯ ---
+       
+        Ray ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0));
 
-        // 1. Пускаем один луч
-        Ray ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2, Screen.height / 2, 0));
-        RaycastHit hit;
-
-        // 2. Проверяем попадание
-        if (Physics.Raycast(ray, out hit, interactionDistance))
+        if (Physics.Raycast(ray, out RaycastHit hit, interactionDistance))
         {
-            // Получаем компонент взаимодействия
-            InteractableObject target = hit.collider.GetComponent<InteractableObject>();
+            GameObject hitObj = hit.collider.gameObject;
 
-            if (target != null)
+            
+            if (Fonarik != null && hitObj == Fonarik && !hasFlashlight)
             {
-                // Показываем иконку "E" для любого интерактивного объекта
-                if (keyIcon != null) keyIcon.SetActive(true);
-
-                // Обработка нажатия E
+                ShowIcon(keyIcon);
                 if (Input.GetKeyDown(interactionKey))
                 {
-                    // Проверяем, является ли этот объект именно Фонариком
-                    // Можно сравнивать по имени, тегу или ссылке на GameObject
-                    if (hit.collider.gameObject == Fonarik || hit.collider.CompareTag("Flashlight"))
-                    {
-                        PickUpFlashlight();
-                    }
-                    else
-                    {
-                        // Логика для других объектов (картинки и т.д.)
-                        if (rawImageUI != null) rawImageUI.SetActive(true);
-                    }
+                    PickUpFlashlight();
+                }
+                return;
+            }
 
-                    // Скрываем иконку после нажатия
-                    if (keyIcon != null) keyIcon.SetActive(false);
+            
+            if (DPSKey != null && !hasKey)
+            {
+                
+                bool isKey = hitObj == DPSKey || hitObj.transform.IsChildOf(DPSKey.transform);
+
+                if (isKey)
+                {
+                    ShowIcon(keyIcon);
+                    if (Input.GetKeyDown(interactionKey))
+                    {
+                        PickUpKey();
+                    }
+                    return;  
+                }
+            }
+
+          
+            InteractionPair found = FindPair(hitObj);
+
+            if (found != null)
+            {
+                ShowIcon(keyIcon);
+
+                if (Input.GetKeyDown(interactionKey))
+                {
+                    HideIcon(keyIcon);
+                    found.uiImage.SetActive(true);
+                    currentUI = found.uiImage;
                 }
             }
             else
             {
-                HideIcon();
+                HideIcon(keyIcon);
             }
         }
         else
         {
-            HideIcon();
+            HideIcon(keyIcon);
         }
+    }
+
+    InteractionPair FindPair(GameObject obj)
+    {
+        for (int i = 0; i < interactables.Length; i++)
+        {
+            if (interactables[i].targetObject == obj)
+                return interactables[i];
+        }
+        return null;
     }
 
     void PickUpFlashlight()
     {
-        if (Fonarik == null || Player == null) return;
-
-        // 1. Делаем фонарик ребенком игрока
-        Fonarik.transform.SetParent(Player.transform);
-
-        // 2. Сбрасываем локальную позицию и поворот, чтобы он был "в руках" (или где нужно)
-        // Настройте эти значения под свою модель!
-        Fonarik.transform.localPosition = new Vector3(0.5f, -0.5f, 1f);
+       
+        Fonarik.transform.parent = playerHands;
+        Fonarik.transform.localPosition = Vector3.zero;
         Fonarik.transform.localRotation = Quaternion.identity;
 
-        // 3. Отключаем коллайдер и физику, чтобы он не мешался
-        Collider col = Fonarik.GetComponent<Collider>();
+
+        for (int i = 0; i < DPSKey.transform.childCount; i++)
+        {
+            Transform child = DPSKey.transform.GetChild(i);
+
+            Collider col = child.GetComponent<Collider>();
+            if (col != null) col.enabled = false;
+
+            Rigidbody rb = child.GetComponent<Rigidbody>();
+            if (rb != null) rb.isKinematic = true;
+        }
+
+
+        hasFlashlight = true;
+        HideIcon(keyIcon);
+    }
+    void PickUpKey()
+    {
+        DPSKey.transform.parent = KeyPlayerHands;
+        DPSKey.transform.localPosition = Vector3.zero;
+        DPSKey.transform.localRotation = Quaternion.identity;
+
+        Collider col = DPSKey.GetComponent<Collider>();
         if (col != null) col.enabled = false;
 
-        Rigidbody rb = Fonarik.GetComponent<Rigidbody>();
+        Rigidbody rb = DPSKey.GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = true;
 
-        Debug.Log("Фонарик подобран!");
+        hasKey = true;
+        HideIcon(keyIcon);
+    }
+    void ShowIcon(GameObject icon)
+    {
+        if (icon != null && !icon.activeSelf) icon.SetActive(true);
     }
 
-    void HideIcon()
+    void HideIcon(GameObject icon)
     {
-        if (keyIcon != null && keyIcon.activeSelf) keyIcon.SetActive(false);
+        if (icon != null && icon.activeSelf) icon.SetActive(false);
     }
 }
