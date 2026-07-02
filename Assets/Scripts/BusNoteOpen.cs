@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 public class PlayerInteraction : MonoBehaviour
 {
@@ -8,28 +8,37 @@ public class PlayerInteraction : MonoBehaviour
         public GameObject targetObject;
         public GameObject uiImage;
     }
+
     public float interactionDistance = 10f;
     public KeyCode interactionKey = KeyCode.E;
     public KeyCode disableKey = KeyCode.Escape;
 
     public InteractionPair[] interactables;
 
-    public GameObject Fonarik;          
+    public GameObject Fonarik;
     public Transform playerHands;
     public GameObject DPSKey;
     public Transform KeyPlayerHands;
 
+    public Transform door;
+    public Transform miniDoor1;
+    public Transform miniDoor2;
+    public float doorOpenAngle = 90f;
+    public float doorOpenSpeed = 2f;  
+
     public GameObject keyIcon;
     public GameObject rawImageUI;
+    public FlashlightFollow flashlightScript;
 
     private Camera cam;
     private GameObject currentUI;
-    private bool hasFlashlight = false; 
+    private bool hasFlashlight = false;
     private bool hasKey = false;
+    private bool isDoorOpening = false;  
+    private float doorTargetAngle;  
 
     void Start()
     {
-        
         cam = GetComponent<Camera>();
         if (cam == null) cam = Camera.main;
 
@@ -38,11 +47,30 @@ public class PlayerInteraction : MonoBehaviour
         {
             if (pair.uiImage != null) pair.uiImage.SetActive(false);
         }
+
+        
+        if (door != null)
+        {
+            doorTargetAngle = door.eulerAngles.y;
+        }
     }
 
     void Update()
     {
-        // --- Çàêðûòü UI ïî Escape ---
+        
+        if (isDoorOpening && door != null)
+        {
+            float currentAngle = door.eulerAngles.y;
+            float newAngle = Mathf.LerpAngle(currentAngle, doorTargetAngle, doorOpenSpeed * Time.deltaTime);
+            door.eulerAngles = new Vector3(door.eulerAngles.x, newAngle, door.eulerAngles.z);
+
+            
+            if (Mathf.Abs(currentAngle - doorTargetAngle) < 0.5f)
+            {
+                isDoorOpening = false;
+            }
+        }
+
         if (currentUI != null && currentUI.activeSelf)
         {
             Cursor.lockState = CursorLockMode.None;
@@ -58,7 +86,6 @@ public class PlayerInteraction : MonoBehaviour
             return;
         }
 
-       
         Ray ray = cam.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0));
 
         if (Physics.Raycast(ray, out RaycastHit hit, interactionDistance))
@@ -66,20 +93,24 @@ public class PlayerInteraction : MonoBehaviour
             GameObject hitObj = hit.collider.gameObject;
 
             
-            if (Fonarik != null && hitObj == Fonarik && !hasFlashlight)
+            if (Fonarik != null && !hasFlashlight)
             {
-                ShowIcon(keyIcon);
-                if (Input.GetKeyDown(interactionKey))
+                bool isFlashlight = hitObj == Fonarik || hitObj.transform.IsChildOf(Fonarik.transform);
+
+                if (isFlashlight)
                 {
-                    PickUpFlashlight();
+                    ShowIcon(keyIcon);
+                    if (Input.GetKeyDown(interactionKey))
+                    {
+                        PickUpFlashlight();
+                    }
+                    return;
                 }
-                return;
             }
 
             
             if (DPSKey != null && !hasKey)
             {
-                
                 bool isKey = hitObj == DPSKey || hitObj.transform.IsChildOf(DPSKey.transform);
 
                 if (isKey)
@@ -89,11 +120,29 @@ public class PlayerInteraction : MonoBehaviour
                     {
                         PickUpKey();
                     }
-                    return;  
+                    return;
                 }
             }
 
-          
+            
+            if (door != null && hasKey && !isDoorOpening)
+            {
+                
+                bool isDoor = hitObj == door.gameObject || hitObj.transform.IsChildOf(door);
+
+                if (isDoor)
+                {
+                    ShowIcon(keyIcon);
+                    if (Input.GetKeyDown(interactionKey))
+                    {
+                        OpenDoor();
+                    }
+                    return;
+                }
+            }
+
+
+            
             InteractionPair found = FindPair(hitObj);
 
             if (found != null)
@@ -130,42 +179,62 @@ public class PlayerInteraction : MonoBehaviour
 
     void PickUpFlashlight()
     {
-       
-        Fonarik.transform.parent = playerHands;
+        Fonarik.transform.SetParent(playerHands);
         Fonarik.transform.localPosition = Vector3.zero;
         Fonarik.transform.localRotation = Quaternion.identity;
 
+        Collider[] colliders = Fonarik.GetComponentsInChildren<Collider>();
+        foreach (Collider col in colliders) col.enabled = false;
 
-        for (int i = 0; i < DPSKey.transform.childCount; i++)
+        Rigidbody[] rigidbodies = Fonarik.GetComponentsInChildren<Rigidbody>();
+        foreach (Rigidbody rb in rigidbodies) rb.isKinematic = true;
+
+        if (flashlightScript != null)
         {
-            Transform child = DPSKey.transform.GetChild(i);
-
-            Collider col = child.GetComponent<Collider>();
-            if (col != null) col.enabled = false;
-
-            Rigidbody rb = child.GetComponent<Rigidbody>();
-            if (rb != null) rb.isKinematic = true;
+            flashlightScript.Activate();
+            flashlightScript.playerHands = playerHands;
         }
-
 
         hasFlashlight = true;
         HideIcon(keyIcon);
     }
+
     void PickUpKey()
     {
         DPSKey.transform.parent = KeyPlayerHands;
         DPSKey.transform.localPosition = Vector3.zero;
         DPSKey.transform.localRotation = Quaternion.identity;
 
-        Collider col = DPSKey.GetComponent<Collider>();
-        if (col != null) col.enabled = false;
+        Collider[] colliders = DPSKey.GetComponentsInChildren<Collider>();
+        foreach (Collider col in colliders) col.enabled = false;
 
-        Rigidbody rb = DPSKey.GetComponent<Rigidbody>();
-        if (rb != null) rb.isKinematic = true;
+        Rigidbody[] rigidbodies = DPSKey.GetComponentsInChildren<Rigidbody>();
+        foreach (Rigidbody rb in rigidbodies) rb.isKinematic = true;
 
         hasKey = true;
         HideIcon(keyIcon);
     }
+
+    void OpenDoor()
+    {
+        
+        if (DPSKey != null)
+        {
+            Destroy(DPSKey);
+            DPSKey = null;
+        }
+
+        
+        if (door != null)
+        {
+            doorTargetAngle = door.eulerAngles.y + doorOpenAngle;
+            isDoorOpening = true;
+        }
+
+        hasKey = false;
+        HideIcon(keyIcon);
+    }
+
     void ShowIcon(GameObject icon)
     {
         if (icon != null && !icon.activeSelf) icon.SetActive(true);
