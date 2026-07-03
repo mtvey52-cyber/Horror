@@ -273,11 +273,18 @@ public class PlayerInteraction : MonoBehaviour
 
     void ShowIcon(GameObject icon)
     {
-        if (icon != null)
+        if (icon == null)
         {
-            icon.SetActive(true);
-            Debug.Log("ShowIcon: " + icon.name + ", active = " + icon.activeSelf);
+            Debug.Log("KeyIcon = NULL");
+            return;
         }
+
+        Debug.Log("Включаю: " + icon.name);
+
+        icon.SetActive(true);
+
+        Debug.Log("activeSelf = " + icon.activeSelf);
+        Debug.Log("activeInHierarchy = " + icon.activeInHierarchy);
     }
 
     void HideIcon(GameObject icon)
