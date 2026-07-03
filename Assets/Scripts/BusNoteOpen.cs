@@ -27,6 +27,7 @@ public class PlayerInteraction : MonoBehaviour
     public float doorOpenSpeed = 2f;  
 
     public GameObject keyIcon;
+    public GameObject CenterPoint;
     public GameObject rawImageUI;
     public FlashlightFollow flashlightScript;
 
@@ -169,6 +170,7 @@ public class PlayerInteraction : MonoBehaviour
                 if (Input.GetKeyDown(interactionKey))
                 {
                     HideIcon(keyIcon);
+                    HideIcon(CenterPoint);
                     found.uiImage.SetActive(true);
                     currentUI = found.uiImage;
                 }
