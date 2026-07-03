@@ -18,8 +18,8 @@ public class PlayerInteraction : MonoBehaviour
     public GameObject Fonarik;
     public Transform playerHands;
     public GameObject DPSKey;
+    public GameObject CafeKey;
     public Transform KeyPlayerHands;
-
     public Transform door;
     public Transform miniDoor1;
     public Transform miniDoor2;
@@ -33,7 +33,8 @@ public class PlayerInteraction : MonoBehaviour
     private Camera cam;
     private GameObject currentUI;
     private bool hasFlashlight = false;
-    private bool hasKey = false;
+    private bool hasDpsKey = false;
+    private bool hasCafeKey = false;
     private bool isDoorOpening = false;  
     private float doorTargetAngle;  
 
@@ -91,8 +92,9 @@ public class PlayerInteraction : MonoBehaviour
         if (Physics.Raycast(ray, out RaycastHit hit, interactionDistance))
         {
             GameObject hitObj = hit.collider.gameObject;
+            Debug.Log("Смотрю на: " + hitObj.name);
 
-            
+
             if (Fonarik != null && !hasFlashlight)
             {
                 bool isFlashlight = hitObj == Fonarik || hitObj.transform.IsChildOf(Fonarik.transform);
@@ -109,7 +111,7 @@ public class PlayerInteraction : MonoBehaviour
             }
 
             
-            if (DPSKey != null && !hasKey)
+            if (DPSKey != null && !hasDpsKey)
             {
                 bool isKey = hitObj == DPSKey || hitObj.transform.IsChildOf(DPSKey.transform);
 
@@ -124,18 +126,33 @@ public class PlayerInteraction : MonoBehaviour
                 }
             }
 
-            
-            if (door != null && hasKey && !isDoorOpening)
+
+            Debug.Log("hasDpsKey = " + hasDpsKey);
+            if (door != null && hasDpsKey && !isDoorOpening)
             {
                 
                 bool isDoor = hitObj == door.gameObject || hitObj.transform.IsChildOf(door);
 
                 if (isDoor)
                 {
+                    Debug.Log("Это дверь!");
                     ShowIcon(keyIcon);
                     if (Input.GetKeyDown(interactionKey))
                     {
                         OpenDoor();
+                    }
+                    return;
+                }
+            }
+            if (CafeKey != null && !hasCafeKey)
+            {
+                bool isCafeKey = hitObj == CafeKey || hitObj.transform.IsChildOf(CafeKey.transform);
+                if (isCafeKey)
+                {
+                    ShowIcon(keyIcon);
+                    if (Input.GetKeyDown(interactionKey))
+                    {
+                        PickUpCafeKey();
                     }
                     return;
                 }
@@ -171,8 +188,11 @@ public class PlayerInteraction : MonoBehaviour
     {
         for (int i = 0; i < interactables.Length; i++)
         {
-            if (interactables[i].targetObject == obj)
+            if (interactables[i].targetObject == obj || obj.transform.IsChildOf(interactables[i].targetObject.transform))
+            {
                 return interactables[i];
+            }
+                
         }
         return null;
     }
@@ -211,7 +231,7 @@ public class PlayerInteraction : MonoBehaviour
         Rigidbody[] rigidbodies = DPSKey.GetComponentsInChildren<Rigidbody>();
         foreach (Rigidbody rb in rigidbodies) rb.isKinematic = true;
 
-        hasKey = true;
+        hasDpsKey = true;
         HideIcon(keyIcon);
     }
 
@@ -231,17 +251,41 @@ public class PlayerInteraction : MonoBehaviour
             isDoorOpening = true;
         }
 
-        hasKey = false;
+        hasDpsKey = false;
+        HideIcon(keyIcon);
+    }
+
+    void PickUpCafeKey()
+    {
+        CafeKey.transform.parent = KeyPlayerHands;
+        CafeKey.transform.localPosition = Vector3.zero;
+        CafeKey.transform.localRotation = Quaternion.identity;
+
+        Collider[] colliders = CafeKey.GetComponentsInChildren<Collider>();
+        foreach (Collider col in colliders) col.enabled = false;
+
+        Rigidbody[] rigidbodies = CafeKey.GetComponentsInChildren<Rigidbody>();
+        foreach (Rigidbody rb in rigidbodies) rb.isKinematic = true;
+
+        hasCafeKey = true;
         HideIcon(keyIcon);
     }
 
     void ShowIcon(GameObject icon)
     {
-        if (icon != null && !icon.activeSelf) icon.SetActive(true);
+        if (icon != null)
+        {
+            icon.SetActive(true);
+            Debug.Log("ShowIcon: " + icon.name + ", active = " + icon.activeSelf);
+        }
     }
 
     void HideIcon(GameObject icon)
     {
-        if (icon != null && icon.activeSelf) icon.SetActive(false);
+        if (icon != null)
+        {
+            icon.SetActive(false);
+            Debug.Log("HideIcon: " + icon.name + ", active = " + icon.activeSelf);
+        }
     }
 }

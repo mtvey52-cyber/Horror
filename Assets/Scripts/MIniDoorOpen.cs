@@ -30,7 +30,7 @@ public class MiniDoorOpen : MonoBehaviour
         cam = GetComponent<Camera>();
         if (cam == null) cam = Camera.main;
 
-        // Проверка keyIcon
+        
         if (keyIcon == null)
         {
             Debug.LogError("KEY ICON НЕ НАЗНАЧЕН В ИНСПЕКТОРЕ!");
@@ -74,19 +74,19 @@ public class MiniDoorOpen : MonoBehaviour
             }
         }
 
-        // Управление иконкой
+        
         if (keyIcon != null)
         {
             keyIcon.SetActive(isLookingAtDoor);
 
-            // Отладка
+            
             if (isLookingAtDoor && !keyIcon.activeSelf)
             {
                 Debug.LogWarning("Пытаемся показать keyIcon, но он не активен!");
             }
         }
 
-        // Анимация всех дверей
+        
         AnimateDoor(MiniDoor1, isOpen[0], openAngles[0]);
         AnimateDoor(MiniDoor2, isOpen[1], openAngles[1]);
         AnimateDoor(MiniDoor3, isOpen[2], openAngles[2]);
